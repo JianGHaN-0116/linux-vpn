@@ -9,7 +9,7 @@ INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 DATA_DIR="${VPN_DATA_DIR:-$HOME/.vpn}"
 MIHOMO_VER="${MIHOMO_VER:-1.19.4}"
 YQ_VER="${YQ_VER:-4.44.3}"
-REPO_URL="https://github.com/nelvko/vpn"
+REPO_URL="https://github.com/JianGHaN-0116/linux-vpn"
 # ------------------------------------------------------------------------
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'

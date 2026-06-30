@@ -17,7 +17,7 @@
 ## 一键安装
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/nelvko/vpn/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/JianGHaN-0116/linux-vpn/main/install.sh | bash
 ```
 
 安装脚本会自动处理：
@@ -31,7 +31,7 @@ curl -fsSL https://raw.githubusercontent.com/nelvko/vpn/main/install.sh | bash
 ### 手动安装
 
 ```bash
-git clone https://github.com/nelvko/vpn.git
+git clone https://github.com/JianGHaN-0116/linux-vpn.git
 cd vpn
 sudo ./install.sh
 ```
