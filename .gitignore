@@ -1,0 +1,31 @@
+# Binaries
+vpn
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of go coverage
+*.out
+
+# Go workspace
+go.work
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data files (user runtime)
+data/
+*.mmdb
+*.dat
