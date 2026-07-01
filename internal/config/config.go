@@ -26,6 +26,9 @@ type VPNConfig struct {
 	// Subconverter binary path (optional)
 	SubconverterBin string `yaml:"subconverter_bin,omitempty"`
 
+	// Subconverter URL for converting non-Clash subscriptions (default https://api.v1.mk/sub)
+	SubconverterURL string `yaml:"subconverter_url,omitempty"`
+
 	// Data directory for runtime configs, profiles, logs
 	DataDir string `yaml:"data_dir,omitempty"`
 
@@ -65,6 +68,7 @@ func DefaultConfig() *VPNConfig {
 	return &VPNConfig{
 		MihomoBin:          "",
 		SubconverterBin:    "",
+		SubconverterURL:    "https://api.v1.mk/sub",
 		DataDir:            filepath.Join(home, DefaultDir),
 		Port:               7890,
 		SocksPort:          7891,

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -296,15 +297,53 @@ func (m *Manager) download(rawURL string, dest string) error {
 
 	if !looksLikeYAML(content) {
 		converted, err := tryDecodeBase64(content)
-		if err != nil {
-			rawPath := dest + ".raw"
-			os.WriteFile(rawPath, []byte(content), 0644)
-			return fmt.Errorf("unsupported format, raw saved to %s: %w", rawPath, err)
+		if err == nil {
+			content = converted
 		}
-		content = converted
+	}
+
+	// If still not YAML after base64 decode, try subconverter
+	if !looksLikeYAML(content) && m.cfg.SubconverterURL != "" {
+		converted, err := m.convertViaSubconverter(rawURL)
+		if err == nil {
+			content = converted
+		}
+	}
+
+	if !looksLikeYAML(content) {
+		rawPath := dest + ".raw"
+		os.WriteFile(rawPath, []byte(content), 0644)
+		return fmt.Errorf("unsupported format, raw saved to %s", rawPath)
 	}
 
 	return os.WriteFile(dest, []byte(content), 0644)
+}
+
+func (m *Manager) convertViaSubconverter(rawURL string) (string, error) {
+	apiURL := fmt.Sprintf("%s?target=clash&url=%s&insert=false", m.cfg.SubconverterURL, url.QueryEscape(rawURL))
+
+	resp, err := m.client.Get(apiURL)
+	if err != nil {
+		return "", fmt.Errorf("subconverter request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return "", fmt.Errorf("subconverter HTTP %d: %s", resp.StatusCode, string(body))
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read subconverter response: %w", err)
+	}
+
+	converted := string(data)
+	if !looksLikeYAML(converted) {
+		return "", fmt.Errorf("subconverter returned non-YAML content")
+	}
+
+	return converted, nil
 }
 
 func (m *Manager) mergeConfig() error {

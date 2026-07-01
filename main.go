@@ -10,6 +10,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"vpn/internal/api"
 	"vpn/internal/config"
 	"vpn/internal/kernel"
 	"vpn/internal/proxy"
@@ -50,6 +51,10 @@ func main() {
 		cmdImport(args)
 	case "config":
 		cmdConfig(args)
+	case "delay":
+		cmdDelay(args)
+	case "node":
+		cmdNode(args)
 	case "tun":
 		cmdTun(args)
 	case "version", "-v", "--version":
@@ -572,6 +577,126 @@ func cmdTun(args []string) {
 	}
 }
 
+// ---- node ----
+
+func ensureAPI() *api.Client {
+	secret := cfg.Secret
+	if secret == "" {
+		if data, err := os.ReadFile(cfg.Paths().RuntimeYAML); err == nil {
+			var rtCfg map[string]interface{}
+			if err := yaml.Unmarshal(data, &rtCfg); err == nil {
+				if s, ok := rtCfg["secret"].(string); ok {
+					secret = s
+				}
+			}
+		}
+	}
+	return api.NewClient(cfg.ExternalController, secret)
+}
+
+func cmdNode(args []string) {
+	if len(args) > 0 && args[0] == "-h" || len(args) > 0 && args[0] == "--help" {
+		fmt.Println("Usage: vpn node               - List proxy groups and current node")
+		fmt.Println("       vpn node <group> <name> - Switch to a node in a group")
+		return
+	}
+
+	ac := ensureAPI()
+
+	switch len(args) {
+	case 0:
+		groups, err := ac.ListGroups()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(w, "Group\tType\tCurrent\t")
+		fmt.Fprintln(w, "-----\t----\t-------\t")
+		for _, g := range groups {
+			fmt.Fprintf(w, "%s\t%s\t%s\t\n", g.Name, g.Type, g.Now)
+		}
+		w.Flush()
+
+	case 2:
+		if err := ac.SwitchNode(args[0], args[1]); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("✓ Switched %s → %s\n", args[0], args[1])
+
+	default:
+		fmt.Fprintln(os.Stderr, "Usage: vpn node [<group> <name>]")
+		os.Exit(1)
+	}
+}
+
+// ---- delay ----
+
+func cmdDelay(args []string) {
+	timeout := 5000
+	testURL := "http://www.gstatic.com/generate_204"
+
+	for _, a := range args {
+		switch a {
+		case "-h", "--help":
+			fmt.Println("Usage: vpn delay [flags]")
+			fmt.Println("  -t <ms>    Timeout in milliseconds (default 5000)")
+			fmt.Println("  -u <url>   Test URL (default http://www.gstatic.com/generate_204)")
+			return
+		case "-t":
+			continue
+		case "-u":
+			continue
+		default:
+			if len(args) > 1 {
+				for i, arg := range args {
+					switch arg {
+					case "-t":
+						if i+1 < len(args) {
+							fmt.Sscanf(args[i+1], "%d", &timeout)
+						}
+					case "-u":
+						if i+1 < len(args) {
+							testURL = args[i+1]
+						}
+					}
+				}
+			}
+		}
+	}
+
+	km := getKernelMgr()
+	if !km.IsRunning() {
+		fmt.Fprintln(os.Stderr, "mihomo is not running. Start it first: vpn on")
+		os.Exit(1)
+	}
+
+	ac := ensureAPI()
+	results, err := ac.TestAllProxies(timeout, testURL)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if len(results) == 0 {
+		fmt.Println("No proxies found.")
+		return
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "Proxy\tDelay\t")
+	fmt.Fprintln(w, "-----\t-----\t")
+	for _, r := range results {
+		if r.Error != "" {
+			fmt.Fprintf(w, "%s\t%s\t\n", r.Name, r.Error)
+		} else {
+			fmt.Fprintf(w, "%s\t%d ms\t\n", r.Name, r.Delay)
+		}
+	}
+	w.Flush()
+}
+
 // ---- import (migrate from clashctl) ----
 
 func cmdImport(args []string) {
@@ -728,6 +853,8 @@ Commands:
   import       Import from existing clashctl installation
   config       View/set configuration
   tun          TUN mode management
+  delay        Test and show proxy delay
+  node         List or switch proxy nodes
   version      Show version
 
 Run 'vpn <command> --help' for more details on a command.
